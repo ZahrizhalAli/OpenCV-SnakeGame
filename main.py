@@ -37,6 +37,9 @@ class SnakeGameClass:
         # food point, set random
         self.foodPoint = 0, 0
         self.score = 0
+
+        self.gameOver = False
+
         #initialize random food
         self.randomFoodLocation()
 
@@ -45,51 +48,74 @@ class SnakeGameClass:
 
     # method for update
     def update(self, imgMain, currentHead):
-        px, py = self.previousHead
-        cx, cy = currentHead
 
-        # store the current head point to points
-        self.points.append([cx, cy])
-        # append the distance
-        distance = math.hypot(cx-px, cy-py)
-        self.lengths.append(distance)
-        # once we get the distance, add to the current length
-        self.currentLength += distance
-        # update the previous head
-        self.previousHead = cx,cy
+        if self.gameOver:
+            cvzone.putTextRect(imgMain, "Game Over ", [300, 400], scale= 7, thickness=5, offset=20)
+            cvzone.putTextRect(imgMain, f"Final Score: {self.score}", [300, 50], scale= 7, thickness=5, offset=20)
+        else:
 
-        # LENGTH REDUCTION
-        # check if currentlength grater than allowed length, to make sure fixed length by reducing line
-        if self.currentLength > self.allowedLength:
-            for i, length in enumerate(self.lengths):
-                self.currentLength -= length
-                # reduce the points and the lengths
-                self.lengths.pop(i)
-                self.points.pop(i)
+            px, py = self.previousHead
+            cx, cy = currentHead
 
-                if self.currentLength < self.allowedLength:
-                    break
+            # store the current head point to points
+            self.points.append([cx, cy])
+            # append the distance
+            distance = math.hypot(cx-px, cy-py)
+            self.lengths.append(distance)
+            # once we get the distance, add to the current length
+            self.currentLength += distance
+            # update the previous head
+            self.previousHead = cx,cy
 
-        if self.points:
-            # DRAW SNAKE IF WE HAVE POINTS
-            for i,point in enumerate(self.points):
-                if i != 0:
-                    # point line to the current point
-                    cv2.line(imgMain, self.points[i-1], self.points[i], (0,0,255), 20)
-                    cv2.line(imgMain, self.points[i - 1], self.points[i], (0, 255, 0), 5)
-            # draw circle in finger
-            cv2.circle(imgMain, self.points[-1], 20, (255,0,0), cv2.FILLED)
-        # DRAW FOOD
-        # imgMain : background img
-        # self.imgFood
-        rx, ry = self.foodPoint
-        cv2.circle(imgMain, (rx, ry), 30, (255, 185, 0), cv2.FILLED)
-        if abs(rx-cx) <= 15 and abs(ry-cy) <= 15:
-            self.randomFoodLocation()
-            self.allowedLength += 50
-            self.score += 1
-        cvzone.putTextRect(imgMain, f"Score: {self.score}", [50,80],
-                           scale=3, thickness=3, offset=20)
+            # LENGTH REDUCTION
+            # check if currentlength grater than allowed length, to make sure fixed length by reducing line
+            if self.currentLength > self.allowedLength:
+                for i, length in enumerate(self.lengths):
+                    self.currentLength -= length
+                    # reduce the points and the lengths
+                    self.lengths.pop(i)
+                    self.points.pop(i)
+
+                    if self.currentLength < self.allowedLength:
+                        break
+
+
+            if self.points:
+                # DRAW SNAKE IF WE HAVE POINTS
+                for i,point in enumerate(self.points):
+                    if i != 0:
+                        # point line to the current point
+                        cv2.line(imgMain, self.points[i-1], self.points[i], (0,0,255), 20)
+                # draw circle in finger
+                cv2.circle(imgMain, self.points[-1], 20, (255,0,0), cv2.FILLED)
+
+            # CHECK FOR COLLISION
+            pts = np.array(self.points[:-2], np.int32)  # Ignore the last two points
+            pts = pts.reshape((-1, 1, 2))
+            cv2.polylines(imgMain, [pts], False, (0, 200, 0), 3)
+            minDist = cv2.pointPolygonTest(pts, (cx, cy), True)
+            print(minDist)
+
+            # if -1 <= minDist <= 0:
+            #     self.gameOver = True
+            #     self.points = []  # 1
+            #     self.lengths = []  # 2
+            #     self.currentLength = 0  # 3
+            #     self.allowedLength = 150  # start length
+            #     self.previousHead = 0, 0  # previous head point
+
+
+            # DRAW FOOD
+            # imgMain : background img
+            # self.imgFood
+            rx, ry = self.foodPoint
+            cv2.circle(imgMain, (rx, ry), 35, (255, 185, 0), cv2.FILLED)
+            if abs(rx-cx) <= 20 and abs(ry-cy) <= 20:
+                self.randomFoodLocation()
+                self.allowedLength += 50
+                self.score += 1
+            cvzone.putTextRect(imgMain, f"Score: {self.score}", [50,80],
+                               scale=3, thickness=3, offset=20)
         return imgMain
 
 game = SnakeGameClass("mango.png")
@@ -100,7 +126,8 @@ while True:
     img = cv2.flip(img, 1)
     # find hand
     hands, img = detector.findHands(img, flipType=False)
-
+    cvzone.putTextRect(img, "Snake Game", [500, 80],
+                       scale=3, thickness=3, offset=20)
     # find the point of hand in finger
     if hands:
         # landmark list
@@ -111,5 +138,8 @@ while True:
         img = game.update(img, pointIndex)
 
     cv2.imshow('Image', img)
-    cv2.waitKey(1)
+    key = cv2.waitKey(1)
+    if key == ord('q'):
+        break
+
 
